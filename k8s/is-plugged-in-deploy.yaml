@@ -1,0 +1,115 @@
+# PAP Heartbeat Collector - is.plugged.in deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pap-collector-config
+  namespace: agents
+  labels:
+    app: pap-heartbeat-collector
+data:
+  cluster-id: "is.plugged.in"
+  cluster-name: "Production Cluster (is.plugged.in)"
+  # Alert endpoint on pluggedin-app
+  station-alert-url: "https://plugged.in/api/clusters/is.plugged.in/alerts"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pap-heartbeat-collector
+  namespace: agents
+  labels:
+    app: pap-heartbeat-collector
+    component: collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pap-heartbeat-collector
+  template:
+    metadata:
+      labels:
+        app: pap-heartbeat-collector
+        component: collector
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: collector
+          image: ghcr.io/veriteknik/pap-heartbeat-collector:v1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            - name: COLLECTOR_PORT
+              value: "8080"
+            - name: CLUSTER_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: pap-collector-config
+                  key: cluster-id
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: pap-collector-config
+                  key: cluster-name
+            - name: STATION_ALERT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: pap-collector-config
+                  key: station-alert-url
+            - name: STATION_ALERT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pap-collector-secrets
+                  key: station-alert-key
+            - name: ZOMBIE_CHECK_INTERVAL_MS
+              value: "10000"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pap-collector
+  namespace: agents
+  labels:
+    app: pap-heartbeat-collector
+    component: collector
+spec:
+  type: ClusterIP
+  selector:
+    app: pap-heartbeat-collector
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

@@ -8,9 +8,12 @@
  */
 
 import type { Server } from 'http';
-import { WebSocketServer, type WebSocket } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { heartbeatStore } from '../store.js';
 import type { Config } from '../config.js';
+
+// WebSocket ready states
+const WS_OPEN = WebSocket.OPEN;
 
 interface ObserveConnection {
   ws: WebSocket;
@@ -57,7 +60,7 @@ export function setupObserveWebSocket(server: Server, config: Config): void {
 
     // Register for updates
     const cleanup = heartbeatStore.enableObservation(agentId, (entry) => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WS_OPEN) {
         ws.send(
           JSON.stringify({
             type: 'heartbeat',
@@ -115,7 +118,7 @@ export function setupObserveWebSocket(server: Server, config: Config): void {
   // Periodic ping to keep connections alive
   setInterval(() => {
     for (const [ws] of connections) {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WS_OPEN) {
         ws.ping();
       }
     }
