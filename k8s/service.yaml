@@ -1,0 +1,42 @@
+# PAP Heartbeat Collector - Kubernetes Service
+#
+# Exposes collector within the cluster for agents to send heartbeats
+# Agents use: http://pap-collector.agents.svc:8080/heartbeat/{agentId}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: pap-collector
+  namespace: agents
+  labels:
+    app: pap-heartbeat-collector
+    component: collector
+spec:
+  type: ClusterIP
+  selector:
+    app: pap-heartbeat-collector
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+# Headless service for DNS-based discovery (optional)
+apiVersion: v1
+kind: Service
+metadata:
+  name: pap-collector-headless
+  namespace: agents
+  labels:
+    app: pap-heartbeat-collector
+    component: collector
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: pap-heartbeat-collector
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

@@ -1,0 +1,38 @@
+# PAP Heartbeat Collector - Configuration
+#
+# Update these values for your cluster deployment
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pap-collector-config
+  namespace: agents
+  labels:
+    app: pap-heartbeat-collector
+    component: collector
+data:
+  # Unique identifier for this cluster
+  # Used for alert routing and cluster management
+  cluster-id: "is.plugged.in"
+
+  # Human-readable cluster name
+  cluster-name: "Production Cluster (is.plugged.in)"
+
+  # Central pluggedin-app alerts endpoint
+  # Collector will POST alerts here when agents die or enter EMERGENCY mode
+  station-alert-url: "https://plugged.in/api/clusters/is.plugged.in/alerts"
+---
+# Secret for sensitive configuration
+# Create this separately or use external secret management
+#
+# kubectl create secret generic pap-collector-secrets -n agents \
+#   --from-literal=station-alert-key=<your-api-key>
+#
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: pap-collector-secrets
+#   namespace: agents
+# type: Opaque
+# stringData:
+#   station-alert-key: "pg_in_xxx"
