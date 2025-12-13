@@ -25,6 +25,7 @@ import { ZombieDetector } from './zombie-detector.js';
 import { createHeartbeatRouter } from './routes/heartbeat.js';
 import { createAgentsRouter } from './routes/agents.js';
 import { setupObserveWebSocket } from './routes/observe.js';
+import { requireApiKey } from './middleware/auth.js';
 
 async function main() {
   console.log('========================================');
@@ -37,6 +38,7 @@ async function main() {
   console.log(`Cluster Name: ${config.clusterName}`);
   console.log(`Port: ${config.port}`);
   console.log(`Station Alert URL: ${config.stationAlertUrl || '(not configured)'}`);
+  console.log(`API Key Auth: ${config.collectorApiKey ? 'ENABLED' : 'DISABLED (warning!)'}`);
   console.log(`Zombie Check Interval: ${config.zombieCheckIntervalMs}ms`);
 
   // Initialize components
@@ -117,9 +119,26 @@ async function main() {
     res.send(metrics);
   });
 
+  // Root endpoint - basic info (no auth required)
+  app.get('/', (_req, res) => {
+    res.json({
+      service: 'PAP Heartbeat Collector',
+      version: '1.0.0',
+      cluster_id: config.clusterId,
+      cluster_name: config.clusterName,
+      endpoints: {
+        health: '/health',
+        metrics: '/metrics',
+        heartbeat: '/heartbeat/:agentId',
+        agents: '/agents (requires auth)',
+      },
+    });
+  });
+
   // Mount route handlers
   app.use('/heartbeat', createHeartbeatRouter(zombieDetector));
-  app.use('/agents', createAgentsRouter(config));
+  // /agents requires API key authentication
+  app.use('/agents', requireApiKey(config), createAgentsRouter(config));
 
   // Create HTTP server for both Express and WebSocket
   const server = createServer(app);
@@ -160,13 +179,18 @@ async function main() {
     console.log('');
     console.log(`Server listening on port ${config.port}`);
     console.log('');
-    console.log('Endpoints:');
-    console.log(`  POST /heartbeat/:agentId  - Receive agent heartbeats`);
-    console.log(`  GET  /agents              - List all agents`);
-    console.log(`  GET  /agents/:agentId     - Get single agent status`);
-    console.log(`  WS   /observe/:agentId    - Real-time observation stream`);
+    console.log('Public Endpoints:');
+    console.log(`  GET  /                    - Service info`);
     console.log(`  GET  /health              - Health check`);
     console.log(`  GET  /metrics             - Prometheus metrics`);
+    console.log(`  POST /heartbeat/:agentId  - Receive agent heartbeats`);
+    console.log('');
+    console.log('Protected Endpoints (require X-Collector-Key header):');
+    console.log(`  GET  /agents              - List all agents`);
+    console.log(`  GET  /agents/:agentId     - Get single agent status`);
+    console.log(`  DEL  /agents/:agentId     - Remove agent from tracking`);
+    console.log('');
+    console.log(`  WS   /observe/:agentId    - Real-time observation stream`);
     console.log('');
     console.log('Ready to receive heartbeats!');
   });

@@ -5,6 +5,7 @@
  * - COLLECTOR_PORT: HTTP server port (default: 8080)
  * - STATION_ALERT_URL: Central pluggedin-app alerts endpoint
  * - STATION_ALERT_KEY: API key for authenticating with central
+ * - COLLECTOR_API_KEY: API key for authenticating inbound requests to /agents
  * - CLUSTER_ID: Unique identifier for this cluster
  * - CLUSTER_NAME: Human-readable cluster name
  * - ZOMBIE_CHECK_INTERVAL_MS: How often to check for zombies (default: 10000)
@@ -19,6 +20,9 @@ export interface Config {
   // Central Station
   stationAlertUrl: string;
   stationAlertKey: string;
+
+  // Collector API Key (for authenticating inbound requests)
+  collectorApiKey: string;
 
   // Cluster Identity
   clusterId: string;
@@ -48,6 +52,7 @@ export type HeartbeatMode = keyof typeof HEARTBEAT_INTERVALS;
 export function loadConfig(): Config {
   const stationAlertUrl = process.env.STATION_ALERT_URL;
   const stationAlertKey = process.env.STATION_ALERT_KEY;
+  const collectorApiKey = process.env.COLLECTOR_API_KEY;
   const clusterId = process.env.CLUSTER_ID;
 
   if (!stationAlertUrl) {
@@ -58,6 +63,10 @@ export function loadConfig(): Config {
     console.warn('STATION_ALERT_KEY not set - alerts will be logged only');
   }
 
+  if (!collectorApiKey) {
+    console.warn('COLLECTOR_API_KEY not set - /agents endpoints will be unprotected!');
+  }
+
   if (!clusterId) {
     throw new Error('CLUSTER_ID environment variable is required');
   }
@@ -66,6 +75,7 @@ export function loadConfig(): Config {
     port: parseInt(process.env.COLLECTOR_PORT || '8080', 10),
     stationAlertUrl: stationAlertUrl || '',
     stationAlertKey: stationAlertKey || '',
+    collectorApiKey: collectorApiKey || '',
     clusterId,
     clusterName: process.env.CLUSTER_NAME || clusterId,
     zombieCheckIntervalMs: parseInt(process.env.ZOMBIE_CHECK_INTERVAL_MS || '10000', 10),
